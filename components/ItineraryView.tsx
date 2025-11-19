@@ -9,14 +9,16 @@ interface ItineraryViewProps {
   onBack: () => void;
   startDate?: string;
   endDate?: string;
+  preferences?: any;
 }
 
 const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#6366F1'];
 
-const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startDate, endDate }) => {
+const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startDate, endDate, preferences }) => {
   const [activeTab, setActiveTab] = useState<'timeline' | 'booking'>('timeline');
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveToTrips, setSaveToTrips] = useState(true);
 
   const handleSaveTrip = async () => {
     setIsSaving(true);
@@ -32,45 +34,53 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
         return;
       }
 
-      const tripData = {
+      const tableName = saveToTrips ? 'trips' : 'saved_itineraries';
+      const tripData: any = {
         user_id: user.id,
         destination: itinerary.destinationName,
-        start_date: startDate || itinerary.days[0]?.date || null,
-        end_date: endDate || itinerary.days[itinerary.days.length - 1]?.date || null,
-        status: 'Draft',
-        image_url: `https://picsum.photos/seed/${itinerary.destinationName}/800/400`
+        image_url: `https://picsum.photos/seed/${itinerary.destinationName}/800/400`,
+        itinerary_data: itinerary,
+        preferences: preferences || null
       };
+
+      if (saveToTrips) {
+        tripData.start_date = startDate || itinerary.days[0]?.date || null;
+        tripData.end_date = endDate || itinerary.days[itinerary.days.length - 1]?.date || null;
+        tripData.status = 'Draft';
+      }
 
       console.log('📝 Trip data to save:', tripData);
 
-      const { data, error } = await supabase.from('trips').insert([tripData]).select();
+      const { data, error } = await supabase.from(tableName).insert([tripData]).select();
 
       console.log('💾 Insert response:', { data, error });
 
       if (error) {
         console.error('❌ Error saving trip:', error);
-        alert(`Failed to save trip: ${error.message}\n\nCheck console for details.`);
+        alert(`Failed to save: ${error.message}\n\nCheck console for details.`);
       } else {
         console.log('✅ Trip saved successfully!', data);
         setIsSaved(true);
 
-        // Update trip count in profile
-        console.log('📊 Updating trip count...');
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('trips_count')
-          .eq('id', user.id)
-          .single();
-
-        console.log('📊 Profile query result:', { profile, profileError });
-
-        if (profile) {
-          const updateRes = await supabase
+        // Update trip count in profile only if saving to trips
+        if (saveToTrips) {
+          console.log('📊 Updating trip count...');
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .update({ trips_count: (profile.trips_count || 0) + 1 })
-            .eq('id', user.id);
+            .select('trips_count')
+            .eq('id', user.id)
+            .single();
 
-          console.log('📊 Profile update result:', updateRes);
+          console.log('📊 Profile query result:', { profile, profileError });
+
+          if (profile) {
+            const updateRes = await supabase
+              .from('profiles')
+              .update({ trips_count: (profile.trips_count || 0) + 1 })
+              .eq('id', user.id);
+
+            console.log('📊 Profile update result:', updateRes);
+          }
         }
 
         setTimeout(() => setIsSaved(false), 2000);
@@ -113,29 +123,53 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button className="bg-white/5 hover:bg-white/10 border border-white/10 text-white p-3 rounded-xl backdrop-blur-sm transition-all">
               <Share2 className="w-5 h-5" />
             </button>
-            <button
-              onClick={handleSaveTrip}
-              disabled={isSaving || isSaved}
-              className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
-                isSaved
-                  ? 'bg-green-500 text-white'
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
-            >
-              {isSaved ? (
-                <>
-                  <Check className="w-4 h-4" /> Saved!
-                </>
-              ) : (
-                <>
-                  <Heart className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save Trip'}
-                </>
-              )}
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setSaveToTrips(true); handleSaveTrip(); }}
+                disabled={isSaving || isSaved}
+                className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
+                  isSaved && saveToTrips
+                    ? 'bg-green-500 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white'
+                }`}
+              >
+                {isSaved && saveToTrips ? (
+                  <>
+                    <Check className="w-4 h-4" /> Added to Trips!
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4" /> {isSaving && saveToTrips ? 'Saving...' : 'Add to My Trips'}
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => { setSaveToTrips(false); handleSaveTrip(); }}
+                disabled={isSaving || isSaved}
+                className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
+                  isSaved && !saveToTrips
+                    ? 'bg-green-500 text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+              >
+                {isSaved && !saveToTrips ? (
+                  <>
+                    <Check className="w-4 h-4" /> Saved!
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-4 h-4" /> {isSaving && !saveToTrips ? 'Saving...' : 'Save for Later'}
+                  </>
+                )}
+              </button>
+            </div>
+
             <button className="bg-white text-black hover:bg-gray-200 px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2">
               <Download className="w-4 h-4" /> Export PDF
             </button>

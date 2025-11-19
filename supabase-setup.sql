@@ -25,16 +25,19 @@ CREATE TABLE IF NOT EXISTS public.trips (
   end_date date,
   status text CHECK (status IN ('Upcoming', 'Completed', 'Draft')),
   image_url text,
+  itinerary_data jsonb,
+  preferences jsonb,
   created_at timestamp with time zone DEFAULT now()
 );
 
--- Create Saved Destinations Table
-CREATE TABLE IF NOT EXISTS public.saved_destinations (
+-- Create Saved Itineraries Table (formerly saved_destinations)
+CREATE TABLE IF NOT EXISTS public.saved_itineraries (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL,
-  name text NOT NULL,
-  country text,
+  destination text NOT NULL,
   image_url text,
+  itinerary_data jsonb NOT NULL,
+  preferences jsonb,
   created_at timestamp with time zone DEFAULT now()
 );
 
@@ -42,15 +45,16 @@ CREATE TABLE IF NOT EXISTS public.saved_destinations (
 -- Improve query performance
 
 CREATE INDEX IF NOT EXISTS idx_trips_user_id ON public.trips(user_id);
-CREATE INDEX IF NOT EXISTS idx_saved_destinations_user_id ON public.saved_destinations(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_itineraries_user_id ON public.saved_itineraries(user_id);
 CREATE INDEX IF NOT EXISTS idx_trips_created_at ON public.trips(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_itineraries_created_at ON public.saved_itineraries(created_at DESC);
 
 -- ============= RLS POLICIES =============
 
 -- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.saved_destinations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_itineraries ENABLE ROW LEVEL SECURITY;
 
 -- ===== PROFILES POLICIES =====
 
@@ -104,25 +108,32 @@ CREATE POLICY "Users can delete own trips" ON public.trips
   FOR DELETE
   USING (auth.uid() = user_id);
 
--- ===== SAVED DESTINATIONS POLICIES =====
+-- ===== SAVED ITINERARIES POLICIES =====
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view saved" ON public.saved_destinations;
-DROP POLICY IF EXISTS "Users can insert saved" ON public.saved_destinations;
-DROP POLICY IF EXISTS "Users can delete saved" ON public.saved_destinations;
+DROP POLICY IF EXISTS "Users can view saved" ON public.saved_itineraries;
+DROP POLICY IF EXISTS "Users can insert saved" ON public.saved_itineraries;
+DROP POLICY IF EXISTS "Users can delete saved" ON public.saved_itineraries;
+DROP POLICY IF EXISTS "Users can update saved" ON public.saved_itineraries;
 
--- Allow users to view their saved destinations
-CREATE POLICY "Users can view saved" ON public.saved_destinations
+-- Allow users to view their saved itineraries
+CREATE POLICY "Users can view saved" ON public.saved_itineraries
   FOR SELECT
   USING (auth.uid() = user_id);
 
--- Allow users to insert saved destinations
-CREATE POLICY "Users can insert saved" ON public.saved_destinations
+-- Allow users to insert saved itineraries
+CREATE POLICY "Users can insert saved" ON public.saved_itineraries
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Allow users to delete saved destinations
-CREATE POLICY "Users can delete saved" ON public.saved_destinations
+-- Allow users to update saved itineraries
+CREATE POLICY "Users can update saved" ON public.saved_itineraries
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to delete saved itineraries
+CREATE POLICY "Users can delete saved" ON public.saved_itineraries
   FOR DELETE
   USING (auth.uid() = user_id);
 
@@ -160,7 +171,7 @@ CREATE TRIGGER on_auth_user_created
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT ALL ON public.profiles TO authenticated;
 GRANT ALL ON public.trips TO authenticated;
-GRANT ALL ON public.saved_destinations TO authenticated;
+GRANT ALL ON public.saved_itineraries TO authenticated;
 
 -- ============= VERIFICATION =============
 -- Run these queries to verify setup

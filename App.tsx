@@ -214,6 +214,7 @@ const App: React.FC = () => {
               onBack={() => setHomeStep(FlowStep.Suggestions)}
               startDate={preferences?.startDate}
               endDate={preferences?.endDate}
+              preferences={preferences}
             />
           );
         }
