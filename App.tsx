@@ -84,26 +84,12 @@ const App: React.FC = () => {
 
       console.log('📧 Signup response:', res);
 
-      if(!error) {
-          // Create profile entry
-          if (res.data.user) {
-             console.log('👤 Creating profile for user:', res.data.user.id);
-             const profileRes = await supabase.from('profiles').insert([{
-               id: res.data.user.id,
-               email: res.data.user.email
-             }]);
-
-             console.log('📝 Profile creation response:', profileRes);
-
-             if (profileRes.error) {
-               console.error('❌ Profile creation failed:', profileRes.error);
-               setAuthError('Account created but profile setup failed: ' + profileRes.error.message);
-             } else {
-               console.log('✅ Profile created successfully!');
-               alert("Check your email for confirmation!");
-               setShowAuthModal(false);
-             }
-          }
+      if (!error) {
+        if (res.data.user) {
+          // The Database Trigger already created the profile for us!
+          alert("Account created! You can now sign in.");
+          setShowAuthModal(false);
+        }
       }
     } else {
       console.log('🔐 Starting signin process...');
@@ -118,7 +104,7 @@ const App: React.FC = () => {
       setAuthError(error.message);
     }
     setLoading(false);
-  };
+    };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
