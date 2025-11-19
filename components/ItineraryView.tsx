@@ -17,12 +17,13 @@ const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#6366F1'];
 const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startDate, endDate, preferences }) => {
   const [activeTab, setActiveTab] = useState<'timeline' | 'booking'>('timeline');
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [saveToTrips, setSaveToTrips] = useState(true);
+  const [lastSavedTo, setLastSavedTo] = useState<'trips' | 'saved' | null>(null);
 
-  const handleSaveTrip = async () => {
+  const handleSaveTrip = async (saveToTrips: boolean) => {
     setIsSaving(true);
-    console.log('💾 Starting trip save...');
+    const saveType = saveToTrips ? 'trips' : 'saved';
+    console.log(`💾 Starting ${saveType} save...`);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       console.log('👤 Current user:', user);
@@ -49,7 +50,7 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
         tripData.status = 'Draft';
       }
 
-      console.log('📝 Trip data to save:', tripData);
+      console.log(`📝 Saving to ${tableName}:`, tripData);
 
       const { data, error } = await supabase.from(tableName).insert([tripData]).select();
 
@@ -59,8 +60,8 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
         console.error('❌ Error saving trip:', error);
         alert(`Failed to save: ${error.message}\n\nCheck console for details.`);
       } else {
-        console.log('✅ Trip saved successfully!', data);
-        setIsSaved(true);
+        console.log(`✅ Trip saved successfully to ${tableName}!`, data);
+        setLastSavedTo(saveType);
 
         // Update trip count in profile only if saving to trips
         if (saveToTrips) {
@@ -83,7 +84,7 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
           }
         }
 
-        setTimeout(() => setIsSaved(false), 2000);
+        setTimeout(() => setLastSavedTo(null), 2000);
       }
     } catch (err) {
       console.error('❌ Exception while saving:', err);
@@ -130,41 +131,41 @@ const ItineraryView: React.FC<ItineraryViewProps> = ({ itinerary, onBack, startD
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setSaveToTrips(true); handleSaveTrip(); }}
-                disabled={isSaving || isSaved}
+                onClick={() => handleSaveTrip(true)}
+                disabled={isSaving}
                 className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
-                  isSaved && saveToTrips
+                  lastSavedTo === 'trips'
                     ? 'bg-green-500 text-white'
-                    : 'bg-red-500 hover:bg-red-600 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white disabled:opacity-50'
                 }`}
               >
-                {isSaved && saveToTrips ? (
+                {lastSavedTo === 'trips' ? (
                   <>
                     <Check className="w-4 h-4" /> Added to Trips!
                   </>
                 ) : (
                   <>
-                    <Calendar className="w-4 h-4" /> {isSaving && saveToTrips ? 'Saving...' : 'Add to My Trips'}
+                    <Calendar className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Add to My Trips'}
                   </>
                 )}
               </button>
 
               <button
-                onClick={() => { setSaveToTrips(false); handleSaveTrip(); }}
-                disabled={isSaving || isSaved}
+                onClick={() => handleSaveTrip(false)}
+                disabled={isSaving}
                 className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
-                  isSaved && !saveToTrips
+                  lastSavedTo === 'saved'
                     ? 'bg-green-500 text-white'
-                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-50'
                 }`}
               >
-                {isSaved && !saveToTrips ? (
+                {lastSavedTo === 'saved' ? (
                   <>
                     <Check className="w-4 h-4" /> Saved!
                   </>
                 ) : (
                   <>
-                    <Heart className="w-4 h-4" /> {isSaving && !saveToTrips ? 'Saving...' : 'Save for Later'}
+                    <Heart className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save for Later'}
                   </>
                 )}
               </button>
